@@ -3,6 +3,9 @@
 // All 4 features: Scraper, Sheets, AI, Tracker, Schedule
 // ============================================
 
+// ---- BACKEND URL (Your Railway URL) ----
+const BACKEND_URL = 'https://scraper-pro-production.up.railway.app';
+
 // ---- STATE ----
 let selectors = [];
 let scrapedData = [];
@@ -46,7 +49,6 @@ function loadAllData() {
     if (r.autoSync !== undefined) {
       document.getElementById('autoSyncToggle').checked = r.autoSync;
     }
-    // Auto-fill tracker selector from last selected
     if (selectors.length > 0) {
       document.getElementById('trackSelector').value = selectors[selectors.length - 1].selector;
     }
@@ -98,7 +100,6 @@ function setupScraper() {
         document.getElementById('exportCSV').disabled = false;
         document.getElementById('exportJSON').disabled = false;
 
-        // Auto-sync to sheets if enabled
         if (autoSync && sheetsToken) {
           const sheetId = document.getElementById('sheetIdInput').value;
           if (sheetId) await exportToGoogleSheets(sheetId, scrapedData);
@@ -150,6 +151,7 @@ function updateScraperUI() {
   renderSelectorsList();
 }
 
+// ✅ FIX 1: Removed onclick — using data-index instead
 function renderSelectorsList() {
   const list = document.getElementById('selectorsList');
   if (!selectors.length) {
@@ -160,7 +162,7 @@ function renderSelectorsList() {
     <div class="selector-item">
       <span class="sel-name" title="${esc(item.selector)}">${esc(item.selector)}</span>
       <span class="sel-count">${item.count}</span>
-      <button class="sel-remove" onclick="removeSelector(${i})">✕</button>
+      <button class="sel-remove" data-index="${i}">✕</button>
     </div>`).join('');
 }
 
@@ -228,7 +230,6 @@ async function exportToGoogleSheets(sheetId, data) {
 
   try {
     const sheetName = document.getElementById('sheetNameInput').value || 'Sheet1';
-    // Add headers as first row if first export
     const headers = [Object.keys(data[0])];
     const rows = data.map(row => Object.values(row));
     const values = [...headers, ...rows];
@@ -260,7 +261,6 @@ async function exportToGoogleSheets(sheetId, data) {
 
 function parseSheetId(input) {
   if (!input) return null;
-  // Handle full URL: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
   const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : input.trim();
 }
@@ -280,67 +280,53 @@ async function runAISelector() {
   document.getElementById('aiLoading').classList.add('show');
   document.getElementById('aiResult').classList.remove('show');
   document.getElementById('aiApplyBtn').style.display = 'none';
+  document.getElementById('aiSelectBtn').disabled = true;
   setStatus('🧠 AI analyzing page...', 'warn');
 
-  // Get page HTML from content script
   sendToTab({ action: 'getPageHTML' }, async (res) => {
     if (!res?.html) {
       document.getElementById('aiLoading').classList.remove('show');
+      document.getElementById('aiSelectBtn').disabled = false;
       setStatus('❌ Could not read page. Refresh and try.', 'error');
       return;
     }
 
     try {
-      // Call Anthropic API (Claude)
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(`${BACKEND_URL}/api/ai-selector`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': await getApiKey(),
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: `You are a web scraping expert. Given this page HTML, find CSS selectors for: "${prompt}".
-
-Return ONLY a JSON array like this (no other text):
-[
-  {"selector": ".price", "description": "Product prices", "count": 10},
-  {"selector": ".product-title", "description": "Product names", "count": 10}
-]
-
-Page HTML (first 8000 chars):
-${res.html.substring(0, 8000)}`
-          }]
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: res.html, prompt })
       });
 
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Backend error ' + response.status);
+      }
+
       const data = await response.json();
-      const text = data.content?.[0]?.text || '';
+      aiSuggestedSelectors = data.selectors || [];
 
-      // Parse JSON from response
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('No selectors found');
+      if (!aiSuggestedSelectors.length) {
+        throw new Error('AI could not find matching elements on this page');
+      }
 
-      aiSuggestedSelectors = JSON.parse(jsonMatch[0]);
-
-      // Show results
       document.getElementById('aiLoading').classList.remove('show');
+      document.getElementById('aiSelectBtn').disabled = false;
       document.getElementById('aiResult').textContent =
-        aiSuggestedSelectors.map(s => `${s.selector}\n→ ${s.description} (${s.count} items)`).join('\n\n');
+        aiSuggestedSelectors.map(s =>
+          `${s.selector}\n→ ${s.description} (${s.count} items)`
+        ).join('\n\n');
       document.getElementById('aiResult').classList.add('show');
       document.getElementById('aiApplyBtn').style.display = 'block';
       setStatus(`✅ AI found ${aiSuggestedSelectors.length} selectors!`);
 
     } catch (e) {
       document.getElementById('aiLoading').classList.remove('show');
-      // Fallback: show setup instructions
-      document.getElementById('aiResult').textContent = 'Add your Claude API key in Settings to use AI features.';
+      document.getElementById('aiSelectBtn').disabled = false;
+      document.getElementById('aiResult').textContent =
+        `❌ ${e.message}\n\nBackend: ${BACKEND_URL}`;
       document.getElementById('aiResult').classList.add('show');
-      setStatus('⚠️ Add API key to use AI features', 'error');
+      setStatus('❌ AI error. See details above.', 'error');
     }
   });
 }
@@ -355,19 +341,8 @@ function applyAISelectors() {
     chrome.storage.local.set({ selectors: existing });
     selectors = existing;
     updateScraperUI();
-    // Switch to scraper tab
     document.querySelector('[data-panel="scrape"]').click();
     setStatus(`✅ ${aiSuggestedSelectors.length} AI selectors applied!`);
-  });
-}
-
-function fillAI(text) {
-  document.getElementById('aiPrompt').value = text;
-}
-
-async function getApiKey() {
-  return new Promise(resolve => {
-    chrome.storage.local.get(['claudeApiKey'], r => resolve(r.claudeApiKey || ''));
   });
 }
 
@@ -388,11 +363,8 @@ async function addPriceTracker() {
     return;
   }
 
-  // Get current tab URL
   chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     const url = tabs[0]?.url || '';
-
-    // Get current price from page
     sendToTab({ action: 'scrapePrice', selector }, async (res) => {
       const currentPrice = res?.price
         ? parseFloat(res.price.replace(/[^0-9.]/g, ''))
@@ -400,11 +372,7 @@ async function addPriceTracker() {
 
       const tracker = {
         id: Date.now(),
-        name,
-        url,
-        selector,
-        alertPrice,
-        currentPrice,
+        name, url, selector, alertPrice, currentPrice,
         lastChecked: new Date().toISOString()
       };
 
@@ -413,7 +381,6 @@ async function addPriceTracker() {
       prices.push(tracker);
       await chrome.storage.local.set({ trackedPrices: prices });
 
-      // Clear form
       document.getElementById('trackName').value = '';
       document.getElementById('trackAlertPrice').value = '';
       updateTrackerUI(prices);
@@ -422,6 +389,7 @@ async function addPriceTracker() {
   });
 }
 
+// ✅ FIX 2: Removed onclick — using class + data-index instead
 function updateTrackerUI(prices) {
   const list = document.getElementById('trackedPricesList');
   if (!prices.length) {
@@ -437,7 +405,7 @@ function updateTrackerUI(prices) {
         </div>
         <div style="text-align:right">
           <div class="price-val">$${p.currentPrice || '—'}</div>
-          <button onclick="removeTracker(${i})" style="background:none;border:none;color:#ef4444;font-size:10px;cursor:pointer;">Remove</button>
+          <button class="tracker-remove" data-index="${i}" style="background:none;border:none;color:#ef4444;font-size:10px;cursor:pointer;">Remove</button>
         </div>
       </div>
       <div style="font-size:10px;color:#505070;">
@@ -465,14 +433,8 @@ async function addSchedule() {
   const interval = parseInt(document.getElementById('schedInterval').value);
   const sheetId = document.getElementById('schedSheetId').value.trim();
 
-  if (!name) {
-    setStatus('⚠️ Enter a schedule name', 'error');
-    return;
-  }
-  if (!selectors.length) {
-    setStatus('⚠️ Select elements to scrape first', 'error');
-    return;
-  }
+  if (!name) { setStatus('⚠️ Enter a schedule name', 'error'); return; }
+  if (!selectors.length) { setStatus('⚠️ Select elements to scrape first', 'error'); return; }
 
   chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     const schedule = {
@@ -498,22 +460,23 @@ async function addSchedule() {
   });
 }
 
+// ✅ FIX 3: Removed onclick — using class + data-index instead
 function updateScheduleUI(schedules) {
   const list = document.getElementById('schedulesList');
   if (!schedules.length) {
     list.innerHTML = `<div class="empty-state" style="padding:16px;text-align:center;color:#505070;font-size:12px;"><div style="font-size:24px;margin-bottom:6px;">⏰</div>No schedules yet.</div>`;
     return;
   }
-  const freqMap = { 60: 'Hourly', 360: 'Every 6h', 720: 'Every 12h', 1440: 'Daily', 10080: 'Weekly' };
+  const freqMap = { 60:'Hourly', 360:'Every 6h', 720:'Every 12h', 1440:'Daily', 10080:'Weekly' };
   list.innerHTML = schedules.map((s, i) => `
     <div class="schedule-item">
       <div>
         <div class="sched-name">${esc(s.name)}</div>
-        <div class="sched-freq">${freqMap[s.intervalMinutes] || s.intervalMinutes + 'min'} · ${s.selectors.length} fields</div>
+        <div class="sched-freq">${freqMap[s.intervalMinutes] || s.intervalMinutes+'min'} · ${s.selectors.length} fields</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="sched-status">Active</span>
-        <button onclick="removeSchedule(${i})" style="background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;">✕</button>
+        <button class="schedule-remove" data-index="${i}" style="background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;">✕</button>
       </div>
     </div>`).join('');
 }
@@ -528,8 +491,6 @@ async function removeSchedule(i) {
 // ============================================
 // HELPERS
 // ============================================
-
-// Safe tab message sender
 function sendToTab(message, callback) {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (!tabs[0]) return;
@@ -555,15 +516,11 @@ function downloadCSV(data) {
   const rows = data.map(row =>
     Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
   );
-  const csv = [headers, ...rows].join('\n');
-  triggerDownload(new Blob([csv], { type: 'text/csv' }), `scraped-${Date.now()}.csv`);
+  triggerDownload(new Blob([[headers, ...rows].join('\n')], { type: 'text/csv' }), `scraped-${Date.now()}.csv`);
 }
 
 function downloadJSON(data) {
-  triggerDownload(
-    new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
-    `scraped-${Date.now()}.json`
-  );
+  triggerDownload(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `scraped-${Date.now()}.json`);
 }
 
 function triggerDownload(blob, filename) {
@@ -575,8 +532,29 @@ function triggerDownload(blob, filename) {
 
 function esc(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// ============================================
+// ✅ FIX 4: Event delegation — handles ALL
+// dynamic button clicks without inline onclick
+// ============================================
+document.addEventListener('click', (e) => {
+  // Quick command AI buttons
+  if (e.target.classList.contains('ai-quick')) {
+    document.getElementById('aiPrompt').value = e.target.dataset.prompt;
+  }
+  // Remove selector button
+  if (e.target.classList.contains('sel-remove')) {
+    removeSelector(parseInt(e.target.dataset.index));
+  }
+  // Remove tracker button
+  if (e.target.classList.contains('tracker-remove')) {
+    removeTracker(parseInt(e.target.dataset.index));
+  }
+  // Remove schedule button
+  if (e.target.classList.contains('schedule-remove')) {
+    removeSchedule(parseInt(e.target.dataset.index));
+  }
+});
