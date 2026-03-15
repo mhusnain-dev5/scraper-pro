@@ -1,85 +1,66 @@
-// ============================================
-// SCRAPER PRO - Backend Server
-// Uses Google Gemini API (FREE forever)
-// ============================================
-
 const express = require('express');
 const cors = require('cors');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ---- Health check ----
 app.get('/', (req, res) => {
   res.json({ 
-    status: '✅ ScraperPro Backend Running!',
-    version: '2.0.0',
-    ai: 'Google Gemini (Free)'
+    status: 'ScraperPro Backend Running!',
+    ai: 'Groq Llama (Free)',
+    version: '2.0.0'
   });
 });
 
-// ---- AI Selector endpoint ----
 app.post('/api/ai-selector', async (req, res) => {
   const { html, prompt } = req.body;
-
   if (!html || !prompt) {
-    return res.status(400).json({ error: 'html and prompt are required' });
+    return res.status(400).json({ error: 'html and prompt required' });
   }
-
   try {
-    const aiPrompt = `You are a web scraping expert.
-Analyze this HTML and find the best CSS selectors for: "${prompt}"
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [{
+        role: 'user',
+        content: `You are a web scraping expert.
+Analyze this HTML and find CSS selectors for: "${prompt}"
+Return ONLY a valid JSON array, no explanation, no markdown, no backticks:
+[{"selector": ".class", "description": "what it selects", "count": 5}]
+HTML: ${html.substring(0, 6000)}`
+      }],
+      temperature: 0.1,
+      max_tokens: 500
+    });
 
-Rules:
-- Return ONLY a valid JSON array
-- No explanation, no markdown, no backticks
-- Just the raw JSON array
-
-Format:
-[
-  {"selector": ".price", "description": "Product prices", "count": 5},
-  {"selector": ".title", "description": "Product titles", "count": 5}
-]
-
-HTML to analyze:
-${html.substring(0, 8000)}`;
-
-    const result = await model.generateContent(aiPrompt);
-    const text = result.response.text();
-
-    // Extract JSON from response
+    const text = completion.choices[0]?.message?.content || '';
     const match = text.match(/\[[\s\S]*\]/);
-    if (!match) {
-      return res.status(422).json({ 
-        error: 'AI could not find selectors for this page' 
-      });
-    }
-
+    if (!match) return res.status(422).json({ error: 'AI could not find selectors' });
+    
     const selectors = JSON.parse(match[0]);
-    res.json({ selectors, source: 'gemini' });
-
+    res.json({ selectors, source: 'groq-llama3' });
   } catch (e) {
-    console.error('AI Error:', e.message);
+    console.error('Error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// ---- Price check endpoint ----
 app.post('/api/analyze-price', async (req, res) => {
-  const { text, currency } = req.body;
+  const { text } = req.body;
   try {
-    const result = await model.generateContent(
-      `Extract the price number from this text: "${text}". 
-       Return ONLY the number, no currency symbol, no text. 
-       Example: 29.99`
-    );
-    const price = parseFloat(result.response.text().trim());
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [{
+        role: 'user',
+        content: `Extract price number from: "${text}". Return ONLY the number. Example: 29.99`
+      }],
+      max_tokens: 20
+    });
+    const price = parseFloat(completion.choices[0]?.message?.content?.trim());
     res.json({ price: isNaN(price) ? null : price });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -88,7 +69,7 @@ app.post('/api/analyze-price', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 ScraperPro Backend running on port ${PORT}`);
-  console.log(`🤖 AI: Google Gemini Flash (Free)`);
-  console.log(`✅ Ready!`);
+  console.log(`ScraperPro running on port ${PORT}`);
+  console.log(`AI: Groq Llama3 (Free - 14400 req/day)`);
+  console.log(`Ready!`);
 });
