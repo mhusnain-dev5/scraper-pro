@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ScraperPro</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      width: 380px;
+      min-height: 520px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #e8e8f0;
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      padding: 14px 16px 0;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .logo { display:flex; align-items:center; gap:8px; }
+    .logo h1 { font-size:16px; font-weight:700; color:#fff; }
+    .plan-badge {
+      font-size:10px;
+      background:rgba(255,255,255,0.2);
+      color:#fff;
+      padding:2px 8px;
+      border-radius:20px;
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 2px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px 4px;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 11px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .tab.active {
+      color: #fff;
+      border-bottom-color: #fff;
+      font-weight: 600;
+    }
+    .tab:hover { color: rgba(255,255,255,0.9); }
+
+    /* CONTENT */
+    .content { padding: 14px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* STATUS */
+    .status-bar {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #9090b0;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    .dot.warn { background: #f59e0b; }
+    .dot.error { background: #ef4444; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* COUNTERS */
+    .counters {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .counter {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .counter .num { font-size:20px; font-weight:700; color:#a78bfa; }
+    .counter .lbl { font-size:10px; color:#606080; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* BUTTONS */
+    .btn {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 8px;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: transparent;
+      color: #9090b0;
+      border: 1px solid #2a2a40;
+    }
+    .btn-secondary:hover { border-color: #4f46e5; color: #a78bfa; }
+    .btn-secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: white;
+    }
+    .btn-success:hover { opacity: 0.9; }
+    .btn-success:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger {
+      background: transparent;
+      color: #ef4444;
+      border: 1px solid #3d1515;
+    }
+    .btn-danger:hover { background: #3d1515; }
+
+    /* EXPORT ROW */
+    .export-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .btn-export {
+      padding: 9px;
+      background: #13131f;
+      color: #9090b0;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-export:hover { border-color: #22c55e; color: #22c55e; }
+    .btn-export:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* SELECTORS LIST */
+    .section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #505070;
+      margin: 12px 0 6px;
+    }
+    .selectors-list {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+    .selector-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1e1e30;
+      font-size: 12px;
+    }
+    .selector-item:last-child { border-bottom: none; }
+    .sel-name { color: #a78bfa; font-family: monospace; font-size: 11px; flex: 1; truncate: ellipsis; overflow: hidden; white-space: nowrap; max-width: 160px; }
+    .sel-count { background: #2a2a40; color: #a78bfa; padding: 1px 7px; border-radius: 20px; font-size: 10px; margin: 0 6px; }
+    .sel-remove { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 0 2px; }
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      color: #505070;
+    }
+    .empty-icon { font-size: 28px; margin-bottom: 6px; }
+    .empty-state p { font-size: 12px; line-height: 1.5; }
+
+    /* SELECTING MODE */
+    .selecting-alert {
+      display: none;
+      background: #0d2010;
+      border: 1px solid #22c55e;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #22c55e;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .selecting-alert.show { display: block; }
+
+    /* GOOGLE SHEETS PANEL */
+    .sheets-card {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .sheets-card h3 { font-size: 13px; font-weight: 600; color: #e8e8f0; margin-bottom: 4px; }
+    .sheets-card p { font-size: 12px; color: #707090; margin-bottom: 12px; line-height: 1.4; }
+    .connected-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #0d2010;
+      border: 1px solid #22c55e;
+      color: #22c55e;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    .input-field {
+      width: 100%;
+      background: #0a0a0f;
+      border: 1px solid #2a2a40;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #e8e8f0;
+      font-size: 12px;
+      margin-bottom: 8px;
+      outline: none;
+    }
+    .input-field:focus { border-color: #4f46e5; }
+    .input-field::placeholder { color: #404060; }
+
+    /* AI PANEL */
+    .ai-card {
+      background: linear-gradient(135deg, #13131f, #1a1025);
+      border: 1px solid #3d2a6e;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .ai-card h3 { font-size: 13px; font-weight: 600; color: #c4b5fd; margin-bottom: 4px; }
+    .ai-card p { font-size: 12px; color: #707090; margin-bottom: 12px; }
+    .ai-result {
+      background: #0a0a0f;
+      border: 1px solid #2a2a40;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+      color: #a78bfa;
+      font-family: monospace;
+      margin-bottom: 8px;
+      min-height: 40px;
+      display: none;
+    }
+    .ai-result.show { display: block; }
+    .ai-loading { text-align:center; color:#7070a0; font-size:12px; padding:8px; display:none; }
+    .ai-loading.show { display:block; }
+
+    /* PRICE TRACKER PANEL */
+    .price-item {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .price-item-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+    .price-name { font-size: 12px; font-weight: 600; color: #e8e8f0; }
+    .price-val { font-size: 18px; font-weight: 700; color: #22c55e; }
+    .price-alert { font-size: 11px; color: #707090; }
+    .price-drop { color: #22c55e; }
+    .price-same { color: #f59e0b; }
+
+    /* SCHEDULE PANEL */
+    .schedule-item {
+      background: #13131f;
+      border: 1px solid #2a2a40;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sched-name { font-size: 12px; font-weight: 600; color: #e8e8f0; }
+    .sched-freq { font-size: 11px; color: #707090; margin-top: 2px; }
+    .sched-status {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #0d2010;
+      color: #22c55e;
+    }
+
+    /* PRO LOCK */
+    .pro-lock {
+      background: linear-gradient(135deg, #1a1025, #13131f);
+      border: 1px solid #3d2a6e;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .pro-lock .lock-icon { font-size: 24px; margin-bottom: 8px; }
+    .pro-lock h3 { font-size: 13px; font-weight: 600; color: #c4b5fd; margin-bottom: 6px; }
+    .pro-lock p { font-size: 12px; color: #707090; margin-bottom: 12px; line-height: 1.5; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #13131f; }
+    ::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo">
+      <span>🕷️</span>
+      <h1>ScraperPro</h1>
+    </div>
+    <span class="plan-badge" id="planBadge">FREE</span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-panel="scrape">Scraper</button>
+    <button class="tab" data-panel="sheets">Sheets</button>
+    <button class="tab" data-panel="ai">AI ✨</button>
+    <button class="tab" data-panel="tracker">Tracker</button>
+    <button class="tab" data-panel="schedule">Schedule</button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content">
+
+  <!-- ===== SCRAPER TAB ===== -->
+  <div class="tab-panel active" id="panel-scrape">
+    <div class="status-bar">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Ready to scrape</span>
+    </div>
+    <div class="selecting-alert" id="selectingAlert">
+      ✋ Click any element on page to select it
+    </div>
+    <div class="counters">
+      <div class="counter">
+        <div class="num" id="selectorCount">0</div>
+        <div class="lbl">Fields</div>
+      </div>
+      <div class="counter">
+        <div class="num" id="dataCount">0</div>
+        <div class="lbl">Items</div>
+      </div>
+      <div class="counter">
+        <div class="num" id="exportCount">0</div>
+        <div class="lbl">Exported</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="selectBtn">🎯 Select Elements on Page</button>
+    <button class="btn btn-secondary" id="scrapeBtn" disabled>⚡ Scrape Now</button>
+
+    <div class="section-label">Selected Fields</div>
+    <div class="selectors-list" id="selectorsList">
+      <div class="empty-state">
+        <div class="empty-icon">🎯</div>
+        <p>No fields selected.<br/>Click "Select Elements" to start.</p>
+      </div>
+    </div>
+
+    <div class="section-label">Export</div>
+    <div class="export-row">
+      <button class="btn-export" id="exportCSV" disabled>📄 CSV</button>
+      <button class="btn-export" id="exportJSON" disabled>📋 JSON</button>
+    </div>
+    <button class="btn btn-danger" id="clearBtn">🗑️ Clear All</button>
+  </div>
+
+  <!-- ===== SHEETS TAB ===== -->
+  <div class="tab-panel" id="panel-sheets">
+    <div class="sheets-card">
+      <h3>📊 Connect Google Sheets</h3>
+      <p>Export scraped data directly into your Google Sheet — no CSV download needed.</p>
+      <div id="sheetsDisconnected">
+        <button class="btn btn-success" id="connectSheetsBtn">🔗 Connect Google Account</button>
+      </div>
+      <div id="sheetsConnected" style="display:none;">
+        <div class="connected-badge">✅ Google Account Connected</div>
+        <button class="btn btn-danger" id="disconnectSheetsBtn" style="margin-top:6px">Disconnect</button>
+      </div>
+    </div>
+
+    <div class="sheets-card">
+      <h3>📋 Export to Sheet</h3>
+      <p>Enter your Google Sheet ID or URL to export scraped data.</p>
+      <input class="input-field" id="sheetIdInput" placeholder="Sheet ID or full URL..." />
+      <input class="input-field" id="sheetNameInput" placeholder="Sheet name (default: Sheet1)" />
+      <button class="btn btn-success" id="exportToSheetBtn" disabled>📤 Export to Google Sheets</button>
+    </div>
+
+    <div class="sheets-card">
+      <h3>🔄 Auto-Sync</h3>
+      <p>Automatically append new scrapes to the same sheet.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9090b0;cursor:pointer;">
+        <input type="checkbox" id="autoSyncToggle" style="accent-color:#4f46e5;width:14px;height:14px;" />
+        Enable auto-sync after every scrape
+      </label>
+    </div>
+  </div>
+
+  <!-- ===== AI TAB ===== -->
+  <div class="tab-panel" id="panel-ai">
+    <div class="ai-card">
+      <h3>✨ AI Smart Selector</h3>
+      <p>Describe what you want to scrape — AI finds the right elements automatically.</p>
+      <input class="input-field" id="aiPrompt" placeholder='e.g. "scrape all product prices and names"' />
+      <button class="btn btn-primary" id="aiSelectBtn">🤖 Find Elements with AI</button>
+      <div class="ai-loading" id="aiLoading">🧠 AI is analyzing the page...</div>
+      <div class="ai-result" id="aiResult"></div>
+      <button class="btn btn-success" id="aiApplyBtn" style="display:none;">✅ Apply These Selectors</button>
+    </div>
+
+    <div class="ai-card">
+      <h3>💡 Quick Commands</h3>
+      <p>Click to auto-fill the AI prompt:</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button class="btn-export" onclick="fillAI('scrape all product names and prices')">Products</button>
+        <button class="btn-export" onclick="fillAI('get all article titles and links')">Articles</button>
+        <button class="btn-export" onclick="fillAI('scrape all email addresses')">Emails</button>
+        <button class="btn-export" onclick="fillAI('extract all images and alt text')">Images</button>
+        <button class="btn-export" onclick="fillAI('get all table data')">Tables</button>
+        <button class="btn-export" onclick="fillAI('scrape job titles and company names')">Jobs</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TRACKER TAB ===== -->
+  <div class="tab-panel" id="panel-tracker">
+    <div class="sheets-card">
+      <h3>💰 Track a Price</h3>
+      <p>Save current page price and get alerted when it drops.</p>
+      <input class="input-field" id="trackName" placeholder="Product name..." />
+      <input class="input-field" id="trackSelector" placeholder="CSS selector (auto-filled from scraper)" id="trackSelector" />
+      <input class="input-field" id="trackAlertPrice" type="number" placeholder="Alert me when price drops below..." />
+      <button class="btn btn-primary" id="addTrackerBtn">+ Track This Price</button>
+    </div>
+
+    <div class="section-label">Tracked Prices</div>
+    <div id="trackedPricesList">
+      <div class="empty-state" style="padding:16px;text-align:center;color:#505070;font-size:12px;">
+        <div style="font-size:24px;margin-bottom:6px;">💰</div>
+        No prices tracked yet.<br/>Scrape a price and track it.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCHEDULE TAB ===== -->
+  <div class="tab-panel" id="panel-schedule">
+    <div class="sheets-card">
+      <h3>⏰ Schedule Auto-Scrape</h3>
+      <p>Set up automatic scraping — runs in the background, exports to Google Sheets.</p>
+      <input class="input-field" id="schedName" placeholder="Schedule name (e.g. Daily Amazon Prices)" />
+      <select class="input-field" id="schedInterval">
+        <option value="60">Every Hour</option>
+        <option value="360">Every 6 Hours</option>
+        <option value="720">Every 12 Hours</option>
+        <option value="1440" selected>Every Day</option>
+        <option value="10080">Every Week</option>
+      </select>
+      <input class="input-field" id="schedSheetId" placeholder="Google Sheet ID (auto-append results)" />
+      <button class="btn btn-primary" id="addScheduleBtn">+ Create Schedule</button>
+    </div>
+
+    <div class="section-label">Active Schedules</div>
+    <div id="schedulesList">
+      <div class="empty-state" style="padding:16px;text-align:center;color:#505070;font-size:12px;">
+        <div style="font-size:24px;margin-bottom:6px;">⏰</div>
+        No schedules yet.<br/>Create one to auto-scrape.
+      </div>
+    </div>
+  </div>
+
+</div><!-- end content -->
+
+<script src="popup.js"></script>
+</body>
+</html>
